@@ -14,6 +14,9 @@
 #include <pwd.h>
 #include <sys/utsname.h>
 
+#include <chrono>
+#include <cmath>
+
 using namespace std;
 
 inline int sync_system_call_str(std::string&& command);
@@ -27,7 +30,6 @@ inline future<int> color_print2(std::string colored_text, std::string normal_tex
 inline int print_newline();
 inline int print_os_name();
 inline int print_colors();
-inline future<int> print_name();
 
 void print_empty_line();
 future<void> print_colors_2();
@@ -35,6 +37,7 @@ future<void> print_full_name();
 future<void> print_os_name_2();
 future<void> print_kernel_version();
 future<void> print_desktop_env();
+future<void> print_uptime();
 
 inline std::string get_colors();
 inline std::string get_os_name();
@@ -71,7 +74,7 @@ int main(int argc, char* argv[]) {
 	
 	auto os_name = print_os_name_2();//color_print("OS", get_full_os_name());
 	auto kernel_version = print_kernel_version();//color_print("Kernel", get_kernel_version());
-	auto uptime = color_print2("Uptime", get_uptime());
+	auto uptime = print_uptime();//color_print2("Uptime", get_uptime());
 	auto shell_name = color_print2("Shell", get_shell());
 	auto packages = color_print("Packages", get_pm_packages());
 	auto resolution = color_print("Resolution", get_resolution());
@@ -196,19 +199,6 @@ inline int print_os_name() {
 	return sync_system_call_str(std::string("/usr/bin/figlet ")+std::string("$("+get_os_name()+")"));
 }
 
-inline future<int> print_name() {
-
-	std::string name = "$(whoami)";
-	std::string at = "@";
-	std::string pc_name = "$(uname --nodename)";
-
-	std::string green = "\033[0;32m";
-	std::string normal = "\033[0m";
-	std::string final_command = "echo \""+left_padding+green+name+normal+"@"+green+pc_name+normal+"\n"+left_padding+"----------------------------\"";
-	
-	return system_call_str(final_command);
-}
-
 inline std::string get_colors() {
 
 	std::string sp = "   ";
@@ -303,6 +293,34 @@ inline std::string get_os_name2()
 	return "(unknown)";
 }
 
+struct uptime_data { double hours, minutes, seconds; };
+
+uptime_data get_uptime_2()
+{
+	std::chrono::milliseconds uptime(0u);
+	double uptime_seconds;
+	
+	if (std::ifstream("/proc/uptime", std::ios::in) >> uptime_seconds)
+	{
+		uptime = std::chrono::seconds(static_cast<unsigned long long>(uptime_seconds*1000.0));
+	}
+	
+	const double hours = uptime_seconds / 3600;
+	const double truncated_hours = trunc(hours);
+	const double minutes = (hours - truncated_hours) * 60;
+	const double truncated_minutes = trunc(minutes);
+	const double seconds = (minutes - truncated_minutes) * 60;
+	const double truncated_seconds = trunc(seconds);
+
+	return { truncated_hours, truncated_minutes, truncated_seconds };
+}	
+
+
+
+
+
+
+
 inline future<void> print_os_name_2() 
 {
 	return std::async(std::launch::async, []{
@@ -344,6 +362,18 @@ inline void print_empty_line()
 	std::cout << std::endl << std::flush;
 }
 
+inline future<void> print_uptime()
+{
+	return std::async(std::launch::async, []{
+		const auto uptime = get_uptime_2();	
+		// TODO: use colors
+		cout << left_padding << "Uptime:" << ' '
+		<< uptime.hours << " hours" << ' '
+		<< uptime.minutes << " minutes" << ' '
+		<< uptime.seconds << " seconds"
+		<< endl << std::flush;
+	});	
+}	
 
 
 
