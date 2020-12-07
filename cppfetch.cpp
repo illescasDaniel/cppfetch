@@ -28,6 +28,10 @@ inline int print_newline();
 inline int print_os_name();
 inline int print_colors();
 inline future<int> print_name();
+
+void print_empty_line();
+future<void> print_colors_2();
+future<void> print_full_name();
 future<void> print_os_name_2();
 future<void> print_kernel_version();
 future<void> print_desktop_env();
@@ -59,8 +63,11 @@ const std::string left_padding = "  ";
 int main(int argc, char* argv[]) {
 
 	print_os_name();
-	print_colors();
-	print_name().wait();
+	print_empty_line();
+	print_colors_2().wait();
+	print_empty_line();
+	print_full_name().wait();
+	std::cout << left_padding << "----------------------" << endl;
 	
 	auto os_name = print_os_name_2();//color_print("OS", get_full_os_name());
 	auto kernel_version = print_kernel_version();//color_print("Kernel", get_kernel_version());
@@ -119,21 +126,6 @@ std::string exec(const char* cmd) {
     return result;
 }
 
-std::string get_user_name()
-{
-	uid_t userid;
-	struct passwd* pwd;
-	userid = getuid();
-	pwd = getpwuid(userid);
-	return pwd->pw_name;
-}
-
-std::string get_kernel_version_2()
-{
-	struct utsname name;
-	uname(&name);
-	return name.release;
-}
 
 //
 
@@ -235,7 +227,32 @@ inline std::string get_os_name() {
 	return "cat /etc/*-release | head -n 1";
 }
 
-inline std::string get_os_name2() {
+//
+
+std::string get_user_name()
+{
+	uid_t userid;
+	struct passwd* pwd;
+	userid = getuid();
+	pwd = getpwuid(userid);
+	return pwd->pw_name;
+}
+
+std::string get_kernel_version_2()
+{
+	struct utsname name;
+	uname(&name);
+	return name.release;
+}
+
+std::string get_user_node_name() {
+	struct utsname name;
+	uname(&name);
+	return name.nodename;
+}
+
+inline std::string get_os_name2()
+{
 
 	ifstream stream = ifstream();
 
@@ -286,23 +303,48 @@ inline std::string get_os_name2() {
 	return "(unknown)";
 }
 
-inline future<void> print_os_name_2() {
+inline future<void> print_os_name_2() 
+{
 	return std::async(std::launch::async, []{
 		color_print3("OS", get_os_name2());
 	});
 }
 
-inline future<void> print_kernel_version() {
+inline future<void> print_kernel_version() 
+{
 	return std::async(std::launch::async, []{
 		color_print3("Kernel", get_kernel_version_2());
 	});
 }
 
-inline future<void> print_desktop_env() {
+inline future<void> print_desktop_env() 
+{
 	return std::async(std::launch::async, []{
 		color_print3("Desktop Environment", getenv("XDG_CURRENT_DESKTOP"));
 	});
 }
+
+inline future<void> print_full_name() 
+{
+	return std::async(std::launch::async, []{
+		// TODO: print it in color
+		std::cout << left_padding << get_user_name() << '@' << get_user_node_name() << std::endl << std::flush;
+	});	
+}
+
+inline future<void> print_colors_2() 
+{
+	return std::async(std::launch::async, []{
+		std::cout << left_padding << get_colors() << std::endl << std::flush;
+	});	
+}
+
+inline void print_empty_line()
+{
+	std::cout << std::endl << std::flush;
+}
+
+
 
 
 
