@@ -1,7 +1,18 @@
+#include <cstddef>
+#include <fstream>
 #include <iostream>
 #include <future>
 #include <cstdlib>
 #include <cstring>
+
+#include <array>
+#include <memory>
+#include <string>
+
+// system functions
+#include <unistd.h>
+#include <pwd.h>
+#include <sys/utsname.h>
 
 using namespace std;
 
@@ -11,11 +22,14 @@ inline future<int> system_call(const char* command);
 inline future<int> system_call_str(std::string& command);
 inline future<int> system_call_str(std::string&& command);
 inline future<int> color_print(std::string&& colored_text, std::string&& normal_text);
+inline future<int> color_print2(std::string colored_text, std::string normal_text);
 
 inline int print_newline();
 inline int print_os_name();
 inline int print_colors();
 inline future<int> print_name();
+future<void> print_os_name_2();
+future<void> print_kernel_version();
 
 inline std::string get_colors();
 inline std::string get_os_name();
@@ -47,10 +61,10 @@ int main(int argc, char* argv[]) {
 	print_colors();
 	print_name().wait();
 	
-	auto os_name = color_print("OS", get_full_os_name());
-	auto kernel_version = color_print("Kernel", get_kernel_version());
-	auto uptime = color_print("Uptime", get_uptime());
-	auto shell_name = color_print("Shell", get_shell());
+	auto os_name = print_os_name_2();//color_print("OS", get_full_os_name());
+	auto kernel_version = print_kernel_version();//color_print("Kernel", get_kernel_version());
+	auto uptime = color_print2("Uptime", get_uptime());
+	auto shell_name = color_print2("Shell", get_shell());
 	auto packages = color_print("Packages", get_pm_packages());
 	auto resolution = color_print("Resolution", get_resolution());
 	auto desktop_env = color_print("Desktop Environment", get_desktop_env());
@@ -71,13 +85,66 @@ int main(int argc, char* argv[]) {
 }
 
 //
+const std::string WHITESPACE = " \n\r\t\f\v";
+
+std::string ltrim(const std::string& s)
+{
+    size_t start = s.find_first_not_of(WHITESPACE);
+    return (start == std::string::npos) ? "" : s.substr(start);
+}
+ 
+std::string rtrim(const std::string& s)
+{
+    size_t end = s.find_last_not_of(WHITESPACE);
+    return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+}
+ 
+std::string trim(const std::string& s)
+{
+    return rtrim(ltrim(s));
+}
+
+// https://stackoverflow.com/a/478960/6303785
+std::string exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+
+std::string get_user_name()
+{
+	uid_t userid;
+	struct passwd* pwd;
+	userid = getuid();
+	pwd = getpwuid(userid);
+	return pwd->pw_name;
+}
+
+std::string get_kernel_version_2()
+{
+	struct utsname name;
+	uname(&name);
+	return name.release;
+}
+
+//
 
 inline future<int> system_call(const char* command) {
-	return std::async(std::launch::async, system, command);
+	return std::async(std::launch::async, [&] {
+		std::cout << exec(command) << std::flush;
+		return 0;
+	});
 }
 
 inline future<int> system_call_str(std::string& command) {
-	
+
 	int len = command.size();
 	char *c = new char[len + 1];
 	std::copy(command.begin(), command.end(), c);
@@ -87,41 +154,47 @@ inline future<int> system_call_str(std::string& command) {
 }
 
 inline future<int> system_call_str(std::string&& command) {
-	
-	int len = command.size();
-	char *c = new char[len + 1];
-	std::copy(command.begin(), command.end(), c);
-	c[len] = '\0';
-
-	return std::async(std::launch::async, system, c);
+	return system_call(command.c_str());
 }
 
 inline int sync_system_call_str(std::string&& command) {
-	
-	int len = command.size();
-	char *c = new char[len + 1];
-	std::copy(command.begin(), command.end(), c);
-	c[len] = '\0';
-
-	return system(c);
+	std::cout << exec(command.c_str()) << std::flush;
+	return 0;
 }
 
 inline int sync_system_call_str(std::string& command) {
-	
-	int len = command.size();
-	char *c = new char[len + 1];
-	std::copy(command.begin(), command.end(), c);
-	c[len] = '\0';
-
-	return system(c);
+	std::cout << exec(command.c_str()) << std::flush;
+	return 0;
 }
 
 inline future<int> color_print(std::string&& colored_text, std::string&& normal_text) {
+	
 	std::string green = "\033[0;32m";
 	std::string normal = "\033[0m";
+
 	std::string final_command = "echo \""+left_padding+green+colored_text+normal+": $("+normal_text+")\"";
 	
 	return system_call_str(final_command);
+}
+
+inline future<int> color_print2(std::string colored_text, std::string normal_text) {
+	
+	std::string green = "\033[0;32m";
+	std::string normal = "\033[0m";
+
+	return std::async(std::launch::async, [&] {
+		const auto command_output = exec(normal_text.c_str());//strdup(normal_text.c_str());
+		std::cout << left_padding << colored_text << ": " << trim(command_output) << std::endl << std::flush;
+		return 0;
+	});
+}
+
+inline void color_print3(std::string colored_text, std::string normal_text) {
+	
+	std::string green = "\033[0;32m";
+	std::string normal = "\033[0m";
+
+	std::cout << left_padding << colored_text << ": " << trim(normal_text) << std::endl << std::flush;
 }
 
 //
@@ -159,6 +232,69 @@ inline int print_colors() {
 
 inline std::string get_os_name() {
 	return "cat /etc/*-release | head -n 1";
+}
+
+inline std::string get_os_name2() {
+
+	ifstream stream = ifstream();
+
+	stream.open("/etc/arch-release");
+	if (!stream.fail()) {
+		std::string os_name_str = "";
+		std::getline(stream, os_name_str);
+		os_name_str = trim(os_name_str);
+		stream.close();
+		if (!os_name_str.empty()) {
+			return os_name_str;
+		}
+	}
+
+	stream.open("/etc/lsb-release");
+	if (!stream.fail()) {
+		std::string line = "";
+		std::string valid_os_name = "";
+		bool found = false;
+
+		while(std::getline(stream, line) && !found) {	
+			if (line.find("DISTRIB_DESCRIPTION") != std::string::npos) {
+				found = true;
+				valid_os_name = line;
+			}
+		}
+		
+		if (found) {
+			
+			const size_t equal_pos = valid_os_name.find("=");
+			if (equal_pos != std::string::npos) {
+				
+				std::string name = valid_os_name.substr(equal_pos+1);
+			
+				if (name[0] == '"' && name[name.length()-1] == '"') {
+					name = name.substr(1, name.length()-2);
+				}
+				name = trim(name);
+				stream.close();
+				if (!name.empty()) {
+					return name;
+				}
+			}
+		}
+	}
+
+	stream.close();
+	return "(unknown)";
+}
+
+inline future<void> print_os_name_2() {
+	return std::async(std::launch::async, []{
+		color_print3("OS", get_os_name2());
+	});
+}
+
+inline future<void> print_kernel_version() {
+	return std::async(std::launch::async, []{
+		color_print3("Kernel", get_kernel_version_2());
+	});
 }
 
 inline std::string get_full_os_name() {
