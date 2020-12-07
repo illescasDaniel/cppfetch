@@ -30,6 +30,7 @@ inline int print_colors();
 inline future<int> print_name();
 future<void> print_os_name_2();
 future<void> print_kernel_version();
+future<void> print_desktop_env();
 
 inline std::string get_colors();
 inline std::string get_os_name();
@@ -67,7 +68,7 @@ int main(int argc, char* argv[]) {
 	auto shell_name = color_print2("Shell", get_shell());
 	auto packages = color_print("Packages", get_pm_packages());
 	auto resolution = color_print("Resolution", get_resolution());
-	auto desktop_env = color_print("Desktop Environment", get_desktop_env());
+	auto desktop_env = print_desktop_env();//color_print("Desktop Environment", get_desktop_env());
 	auto window_manager = color_print("Window Manager", get_wm());
 	auto theme = color_print("Theme", get_theme());
 	auto icons = color_print("Icons", get_icons());
@@ -296,6 +297,16 @@ inline future<void> print_kernel_version() {
 		color_print3("Kernel", get_kernel_version_2());
 	});
 }
+
+inline future<void> print_desktop_env() {
+	return std::async(std::launch::async, []{
+		color_print3("Desktop Environment", getenv("XDG_CURRENT_DESKTOP"));
+	});
+}
+
+
+
+
 
 inline std::string get_full_os_name() {
 	std::string os_name = "$(cat /etc/*-release | head -n 1)";
