@@ -43,7 +43,6 @@ inline std::string get_colors();
 inline std::string get_os_name();
 inline std::string get_full_os_name();
 inline std::string get_kernel_version();
-inline std::string get_uptime();
 inline std::string get_packages();
 inline std::string get_pm_packages();
 inline std::string get_shell();
@@ -293,6 +292,62 @@ inline std::string get_os_name2()
 	return "(unknown)";
 }
 
+struct sys_memory { 
+	double available, total;
+	int percentage;
+};
+
+inline sys_memory get_system_memory()
+{
+
+	ifstream stream = ifstream();
+
+	stream.open("/proc/meminfo");
+	if (!stream.fail()) {
+		std::string line = "";
+		std::string memFree = "";
+		std::string memTotal = "";
+		bool found = false;
+		bool found_mem_free = false;
+		bool found_mem_total = false;
+
+		while(std::getline(stream, line) && !found) {	
+			if (line.find("MemFree:") != std::string::npos) {
+				found_mem_free = true;
+				memFree = line;
+			}
+			if (line.find("MemTotal:") != std::string::npos) {
+				found_mem_total = true;
+				memTotal = line;
+			}
+			found = found_mem_free && found_mem_total;
+		}
+	
+		// TODO:
+		// if (found) {
+		// 	
+		// 	const size_t equal_pos = valid_os_name.find("=");
+		// 	if (equal_pos != std::string::npos) {
+		// 		
+		// 		std::string name = valid_os_name.substr(equal_pos+1);
+		// 	
+		// 		if (name[0] == '"' && name[name.length()-1] == '"') {
+		// 			name = name.substr(1, name.length()-2);
+		// 		}
+		// 		name = trim(name);
+		// 		stream.close();
+		// 		if (!name.empty()) {
+		// 			return name;
+		// 		}
+		// 	}
+		// }
+	}
+
+	stream.close();
+	return { 0, 0, 0 };
+}
+
+
 struct uptime_data { double hours, minutes, seconds; };
 
 uptime_data get_uptime_2()
@@ -388,10 +443,6 @@ inline std::string get_full_os_name() {
 
 inline std::string get_kernel_version() {
 	return "uname --kernel-release";
-}
-
-inline std::string get_uptime() {
-	return "uptime --pretty";
 }
 
 inline std::string get_packages() {
